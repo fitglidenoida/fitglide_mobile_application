@@ -19,7 +19,7 @@ class _CustomCalendarState extends State<CustomCalendar> {
   List<DateTime> _dates = [];
   int? _daySelectedIndex;
   final ItemScrollController _scrollController = ItemScrollController();
-  double _scrollAlignment = 0.0;
+  double _scrollAlignment = 0.15;
 
   @override
   void initState() {
@@ -28,8 +28,13 @@ class _CustomCalendarState extends State<CustomCalendar> {
     _focusedDay = widget.initialDate;
     _generateDates();
     _selectedDay();
-    _scrollAlignment = 0.15; // Adjust this based on your left margin needs
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_daySelectedIndex != null) {
+        _moveToDayIndex(_daySelectedIndex!);
+      }
+    });
   }
+
 
   void _generateDates() {
     _dates.clear();
