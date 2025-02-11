@@ -1,4 +1,5 @@
 import 'package:fitglide_mobile_application/services/api_service.dart';
+import 'package:fitglide_mobile_application/services/storage_service.dart';
 
 
 class UserService {
@@ -9,6 +10,14 @@ class UserService {
     final healthVitals = username.isNotEmpty 
       ? await dataService.fetchHealthVitals(username) 
       : [];
+
+          if (healthVitals.isNotEmpty) {
+      await StorageService.saveData('health_vitals_document_id', healthVitals[0]['documentId'].toString());
+    } else {
+      // Optionally, you could remove the key if no health vitals are found
+      await StorageService.removeData('health_vitals_document_id');
+    }
+
 
     return UserData(
       firstName: userDetails['First_name'] ?? userDetails['first_name'] ?? "Guest",

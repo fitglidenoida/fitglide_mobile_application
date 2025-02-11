@@ -403,7 +403,7 @@ class _ProfileViewState extends State<ProfileView> {
                                         builder: (context) => Dialog(
                                           child: Container(
                                             padding: const EdgeInsets.all(20),
-                                            child: StravaConnectButton(),
+                                            child: StravaConnectButton(isConnected: stravaConnected,),
                                           ),
                                         ),
                                       );

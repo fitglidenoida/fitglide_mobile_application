@@ -53,28 +53,25 @@ class _LoginViewState extends State<LoginView> {
   }
 
 Future<void> _handleGoogleSignIn() async {
-  final Map<String, dynamic>? userData = await GoogleSignInHelper.signInAndFetchUserData();
-  if (userData != null) {
-    final String email = userData['email'];
-    final String? firstName = userData['firstName'];
-    // Save the email and first name
-    await StorageService.saveData('username', email); // Save email as username
-    await StorageService.saveData('firstName', firstName);
+  try {
+    final authResult = await GoogleSignInHelper.signInAndFetchUserData(); 
 
-    if (context.mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => MainTabView(), // Redirect to profile setup if required
-        ),
-      );
-    }
-  } else {
-    if (context.mounted) {
+    if (authResult != null && authResult.containsKey('jwt')) {
+      // Store the JWT token securely
+      await StorageService.saveToken(authResult['jwt']); 
+
+      // Navigate to the authenticated screen
+      Navigator.pushReplacementNamed(context, '/home'); 
+    } else {
+      // Handle authentication failure
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Google Sign-In failed")),
+        const SnackBar(content: Text('Authentication failed')),
       );
     }
+  } catch (e) {
+    // Handle unexpected errors
+    print('Error during Google Sign-In: $e');
+    // Show an error message to the user
   }
 }
 

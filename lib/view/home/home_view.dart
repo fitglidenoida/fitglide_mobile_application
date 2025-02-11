@@ -3,6 +3,7 @@ import 'package:fitglide_mobile_application/common_widget/round_button.dart';
 import 'package:fitglide_mobile_application/common_widget/workout_row.dart';
 import 'package:fitglide_mobile_application/services/api_service.dart';
 import 'package:fitglide_mobile_application/services/google_sign_in.dart';
+import 'package:fitglide_mobile_application/services/storage_service.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:simple_animation_progress_bar/simple_animation_progress_bar.dart';
@@ -153,12 +154,21 @@ Future<void> fetchUserData() async {
           bmiCategory = "No health vitals data found.";
           isLoading = false;
         });
+              await StorageService.removeData('health_vitals_document_id');
+
         return;
       }
 
       // Assuming the data is in the first item of the list
       final Map<String, dynamic> vitalData = healthVitalsList[0]['attributes'] ?? healthVitalsList[0];
+          final String? documentId = healthVitalsList[0]['documentId']?.toString() ?? healthVitalsList[0]['documentId']?.toString();
 
+
+      if (documentId != null) {
+      await StorageService.saveData('health_vitals_document_id', documentId);
+    } else {
+      debugPrint('Document ID not found in health vitals data');
+    }
       // Get the necessary fields: Weight, Height, Date of Birth
       // Note: Adjust these keys according to your API response structure
       final double? weightKg = (vitalData['WeightInKilograms'] as num?)?.toDouble();
@@ -799,7 +809,7 @@ Future<void> fetchUserData() async {
                           width: double.maxFinite,
                           height: media.width * 0.45,
                           padding: const EdgeInsets.symmetric(
-                              vertical: 25, horizontal: 20),
+                              vertical: 15, horizontal: 20),
                           decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(25),
@@ -845,8 +855,8 @@ Future<void> fetchUserData() async {
                                         alignment: Alignment.center,
                                         children: [
                                           Container(
-                                            width: media.width * 0.25,
-                                            height: media.width * 0.25,
+                                            width: media.width * 0.23,
+                                            height: media.width * 0.23,
                                             alignment: Alignment.center,
                                             decoration: BoxDecoration(
                                             shape: BoxShape.circle,
@@ -871,7 +881,7 @@ Future<void> fetchUserData() async {
                                           ),
                                           SimpleCircularProgressBar(
                                             progressStrokeWidth: 10,
-                                            backStrokeWidth: 5,
+                                            backStrokeWidth: 0,
                                             progressColors: TColor.secondaryG,
                                             backColor: Colors.grey.shade100,
                                             valueNotifier: ValueNotifier(50),

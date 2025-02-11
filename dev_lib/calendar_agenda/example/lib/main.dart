@@ -1,7 +1,6 @@
-import 'dart:math';
-
-import 'package:calendar_agenda/calendar_agenda.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,30 +26,21 @@ class ExamplePage extends StatefulWidget {
 }
 
 class _ExamplePageState extends State<ExamplePage> {
-  final CalendarAgendaController _calendarAgendaControllerAppBar =
-      CalendarAgendaController();
-  final CalendarAgendaController _calendarAgendaControllerNotAppBar =
-      CalendarAgendaController();
-
-  late DateTime _selectedDateAppBBar;
-  late DateTime _selectedDateNotAppBBar;
-
-  Random random = Random();
+  late DateTime _selectedDate;
+  CalendarFormat _calendarFormat = CalendarFormat.week;
+  late DateTime _focusedDay;
 
   @override
   void initState() {
     super.initState();
-    _selectedDateAppBBar = DateTime.now();
-    _selectedDateNotAppBBar = DateTime.now();
+    _selectedDate = DateTime.now();
+    _focusedDay = DateTime.now();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CalendarAgenda(
-        controller: _calendarAgendaControllerAppBar,
-        appbar: true,
-        selectedDayPosition: SelectedDayPosition.center,
+      appBar: AppBar(
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new,
@@ -58,52 +48,94 @@ class _ExamplePageState extends State<ExamplePage> {
           ),
           onPressed: () {},
         ),
-        weekDay: WeekDay.long,
-        dayNameFontSize: 12,
-        dayNumberFontSize: 16,
-        dayBGColor: Colors.grey.withOpacity(0.15),
-        titleSpaceBetween: 15,
-        backgroundColor: Colors.white,
-        fullCalendarScroll: FullCalendarScroll.horizontal,
-        fullCalendarDay: WeekDay.long,
-        selectedDateColor: Colors.white,
-        dateColor: Colors.black,
-        locale: 'en',
-        initialDate: DateTime.now(),
-        calendarEventColor: Colors.green,
-        firstDate: DateTime.now().subtract(const Duration(days: 140)),
-        lastDate: DateTime.now().add(const Duration(days: 60)),
-        events: List.generate(
-            100,
-            (index) => DateTime.now()
-                .subtract(Duration(days: index * random.nextInt(5)))),
-        onDateSelected: (date) {
-          setState(() {
-            _selectedDateAppBBar = date;
-          });
-        },
-        selectedDayLogo: Container(
-          width: double.maxFinite,
-          height: double.maxFinite,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                colors: [ Color(0xff9DCEFF), Color(0xff92A3FD),
-                
-            ], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-            borderRadius: BorderRadius.circular(10.0),
+        title: TableCalendar(
+          calendarFormat: _calendarFormat,
+          focusedDay: _focusedDay,
+          firstDay: DateTime.now().subtract(const Duration(days: 140)),
+          lastDay: DateTime.now().add(const Duration(days: 60)),
+          startingDayOfWeek: StartingDayOfWeek.monday,
+          onDaySelected: (selectedDay, focusedDay) {
+            setState(() {
+              _selectedDate = selectedDay;
+              _focusedDay = focusedDay; // update `_focusedDay` here
+            });
+          },
+          selectedDayPredicate: (day) {
+            return isSameDay(_selectedDate, day);
+          },
+          onFormatChanged: (format) {
+            if (_calendarFormat != format) {
+              setState(() {
+                _calendarFormat = format;
+              });
+            }
+          },
+          onPageChanged: (focusedDay) {
+            setState(() {
+              _focusedDay = focusedDay;
+            });
+          },
+          calendarStyle: CalendarStyle(
+            selectedDecoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xff9DCEFF), Color(0xff92A3FD)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(10.0),
+            ),
+            todayDecoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10.0),
+            ),
+            outsideDaysVisible: false,
+          ),
+          headerStyle: HeaderStyle(
+            formatButtonVisible: false,
+            titleCentered: true,
+            titleTextStyle: const TextStyle(fontSize: 16.0, color: Colors.white),
+            leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
+            rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
+          ),
+          daysOfWeekStyle: const DaysOfWeekStyle(
+            weekdayStyle: TextStyle(color: Colors.white),
+            weekendStyle: TextStyle(color: Colors.white),
+          ),
+          calendarBuilders: CalendarBuilders(
+            selectedBuilder: (context, date, events) => Container(
+              margin: const EdgeInsets.all(4.0),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xff9DCEFF), Color(0xff92A3FD)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(10.0),
+              ),
+              child: Text(
+                '${date.day}',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
           ),
         ),
+        backgroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Center(
         child: Column(
           children: [
             ElevatedButton(
               onPressed: () {
-                _calendarAgendaControllerAppBar.goToDay(DateTime.now());
+                setState(() {
+                  _selectedDate = DateTime.now();
+                  _focusedDay = DateTime.now();
+                });
               },
-              child: const Text("Today, appbar = true"),
+              child: const Text("Today"),
             ),
-            Text('Selected date is $_selectedDateAppBBar'),
+            Text('Selected date is ${DateFormat('yyyy-MM-dd').format(_selectedDate)}'),
             const SizedBox(
               height: 20.0,
             ),
@@ -113,3 +145,4 @@ class _ExamplePageState extends State<ExamplePage> {
     );
   }
 }
+
