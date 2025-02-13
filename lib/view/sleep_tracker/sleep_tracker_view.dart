@@ -1,4 +1,5 @@
 import 'package:fitglide_mobile_application/common_widget/health_widget.dart';
+import 'package:fitglide_mobile_application/services/api_service.dart';
 import 'package:fitglide_mobile_application/services/health_service.dart';
 import 'package:fitglide_mobile_application/services/sleep_calculator.dart';
 import 'package:fitglide_mobile_application/services/user_service.dart';
@@ -29,6 +30,7 @@ class _SleepTrackerViewState extends State<SleepTrackerView> {
   void initState() {
     super.initState();
     _fetchAlarms();
+    _fetchSleepLogs();
   }
 
   Future<List<Map<String, dynamic>>> getAlarmsFromDevice() async {
@@ -223,14 +225,44 @@ String _formatBedDuration(Duration duration) {
     log("Alarm Triggered!");
   }
 
-  Future<void> _refreshData() async {
-    await _fetchAlarms();
-    setState(() {});
 
-    await Future.delayed(const Duration(milliseconds: 500));
+   Future<void> _refreshData() async {
+    await _fetchAlarms();
+    await _fetchSleepLogs();
+    setState(() {});
+  }
+
+  Future<void> _fetchSleepLogs() async {
+    try {
+      final userId = await UserService.getUserId();
+      print('User ID: $userId'); // Print user ID to check if it's fetched correctly
+
+      // Assuming 'getSleepLogs' in ApiService expects a user ID
+      List<Map<String, dynamic>> logs = await ApiService.getSleepLogs(userId);
+      
+      setState(() {
+        sleepData = logs.map((log) {
+          return {
+            'day': DateFormat('E').format(DateTime.parse(log['date'])),
+            'sleep_duration': log['sleep_duration'] ?? 0.0,
+            'deep_sleep_duration': log['deep_sleep_duration'] ?? 0.0,
+          };
+        }).toList();
+        // Update lastNightSleep if needed, here's an example:
+        lastNightSleep = logs.isNotEmpty 
+          ? {
+              'total': logs.last['sleep_duration'] ?? 0.0, 
+              'deep': logs.last['deep_sleep_duration'] ?? 0.0,
+            }
+          : {};
+      });
+    } catch (e) {
+      log("Failed to fetch sleep logs: $e");
+    }
   }
 
   List<int> showingTooltipOnSpots = [4];
+
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +302,7 @@ String _formatBedDuration(Duration duration) {
           _buildAppBarIcon("assets/img/more_btn.png", () {}),
         ],
       ),
-      backgroundColor: TColor.white,
+       backgroundColor: TColor.white,
       body: RefreshIndicator(
         onRefresh: _refreshData,
         child: SingleChildScrollView(
@@ -278,14 +310,12 @@ String _formatBedDuration(Duration duration) {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              HealthWidget(
-                healthService: HealthService(),
-                onHealthDataFetched: (healthData) => _processSleepData(healthData),
-              ),
+              // Remove HealthWidget as we are not using health data for sleep tracking anymore
               if (sleepData.isNotEmpty)
                 _buildLineChart(media),
               const SizedBox(height: 20),
-              _buildLastNightSleepCard(media),
+              if (lastNightSleep.isNotEmpty)
+                _buildLastNightSleepCard(media),
               const SizedBox(height: 20),
               _buildDailySleepSchedule(),
               const SizedBox(height: 20),
@@ -318,43 +348,42 @@ String _formatBedDuration(Duration duration) {
     );
   }
 
-  Widget _buildLineChart(Size media) {
-    List<FlSpot> defaultSpots = List.generate(7, (index) => FlSpot((index + 1).toDouble(), 0.0));
-
-    return SizedBox(
-      height: media.width * 0.5,
-      child: LineChart(
-        LineChartData(
-          showingTooltipIndicators: showingTooltipOnSpots.map((index) {
-            return ShowingTooltipIndicators([
-              LineBarSpot(lineBarsData[0], 0, lineBarsData[0].spots[index]),
-            ]);
-          }).toList(),
-          lineTouchData: _buildLineTouchData(),
-          lineBarsData: [
-            _buildLineChartBarData(
-              sleepData.isNotEmpty 
-                  ? sleepData.map((e) => FlSpot(sleepData.indexOf(e) + 1, e['total'])).toList() 
-                  : defaultSpots,
-              [TColor.primaryColor2, TColor.primaryColor1]),
-          ],
-          minY: -0.01,
-          maxY: 10.01,
-          titlesData: _buildTitlesData(),
-          gridData: FlGridData(
-            show: true,
-            drawHorizontalLine: true,
-            horizontalInterval: 2,
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: TColor.gray.withOpacity(0.15),
-              strokeWidth: 2,
-            ),
+ Widget _buildLineChart(Size media) {
+  return SizedBox(
+    height: media.width * 0.5,
+    child: LineChart(
+      LineChartData(
+        lineTouchData: _buildLineTouchData(),
+        lineBarsData: [
+          _buildLineChartBarData(
+            sleepData.map((e) => FlSpot(sleepData.indexOf(e) + 1, (e['sleep_duration'] as num).toDouble())).toList(), // Convert to double
+            [TColor.primaryColor2, TColor.primaryColor1],
+            'Total Sleep Duration',
           ),
-          borderData: FlBorderData(show: false),
+          _buildLineChartBarData(
+            sleepData.map((e) => FlSpot(sleepData.indexOf(e) + 1, (e['deep_sleep_duration'] as num).toDouble())).toList(), // Convert to double
+            [TColor.secondaryColor2, TColor.secondaryColor1],
+            'Deep Sleep Duration',
+          ),
+        ],
+        minY: 0,
+        maxY: 10, // Adjust based on expected sleep duration
+        titlesData: _buildTitlesData(),
+        gridData: FlGridData(
+          show: true,
+          drawHorizontalLine: true,
+          horizontalInterval: 2,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: TColor.gray.withOpacity(0.15),
+            strokeWidth: 2,
+          ),
         ),
+        borderData: FlBorderData(show: false),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildLastNightSleepCard(Size media) {
     return Container(
@@ -469,8 +498,25 @@ String _formatBedDuration(Duration duration) {
 
   FlTitlesData _buildTitlesData() {
     return FlTitlesData(
-      bottomTitles: AxisTitles(sideTitles: bottomTitles),
-      rightTitles: AxisTitles(sideTitles: rightTitles),
+      bottomTitles: AxisTitles(sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 32,
+        interval: 1,
+        getTitlesWidget: (value, meta) {
+          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          return Text(days[value.toInt() - 1],
+              style: TextStyle(color: TColor.gray, fontSize: 12));
+        },
+      )),
+      rightTitles: AxisTitles(sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 40,
+        interval: 2,
+        getTitlesWidget: (value, meta) {
+          return Text('${value.toInt()}h',
+              style: TextStyle(color: TColor.gray, fontSize: 12));
+        },
+      )),
       topTitles: const AxisTitles(),
       leftTitles: const AxisTitles(),
     );
@@ -491,6 +537,7 @@ String _formatBedDuration(Duration duration) {
       },
     );
   }
+
 
   SideTitles get bottomTitles => SideTitles(
         showTitles: true,
@@ -513,17 +560,17 @@ String _formatBedDuration(Duration duration) {
         },
       );
 
-  List<LineChartBarData> get lineBarsData {
-    return [
-      _buildLineChartBarData(
-          sleepData.map((e) => FlSpot(sleepData.indexOf(e) + 1, e['total'])).toList(),
-          [TColor.primaryColor2, TColor.primaryColor1]),
-    ];
-  }
+  // List<LineChartBarData> get lineBarsData {
+  //   return [
+  //     _buildLineChartBarData(
+  //         sleepData.map((e) => FlSpot(sleepData.indexOf(e) + 1, e['total'])).toList(),
+  //         [TColor.primaryColor2, TColor.primaryColor1]),
+  //   ];
+  // }
 
   bool get isLoading => false;
 
-  LineChartBarData _buildLineChartBarData(List<FlSpot> spots, List<Color> gradientColors) {
+ LineChartBarData _buildLineChartBarData(List<FlSpot> spots, List<Color> gradientColors, String name) {
     return LineChartBarData(
       isCurved: true,
       gradient: LinearGradient(colors: gradientColors),
@@ -538,8 +585,13 @@ String _formatBedDuration(Duration duration) {
         ),
       ),
       spots: spots,
+      showingIndicators: [0],
+      dotData: FlDotData(
+        show: false,
+      ),
     );
   }
+
 
   void _processSleepData(List<HealthDataPoint> healthData) {
     Map<String, Map<String, double>> weeklySleep = {};

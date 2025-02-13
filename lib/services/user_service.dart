@@ -1,5 +1,6 @@
 import 'package:fitglide_mobile_application/services/api_service.dart';
 import 'package:fitglide_mobile_application/services/storage_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 class UserService {
@@ -27,7 +28,36 @@ class UserService {
       dateOfBirth: healthVitals.isNotEmpty ? healthVitals[0]['date_of_birth'] as String? : null,
     );
   }
+
+  static Future<String> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? userId = prefs.getString('userId');
+    
+    if (userId == null) {
+      try {
+        final userDetails = await DataService().fetchUserDetails();
+        userId = userDetails['id']?.toString();  // Use 'id' instead of 'userId'
+        if (userId != null) {
+          // Save the user ID to SharedPreferences for future use
+          await prefs.setString('userId', userId);
+        } else {
+          throw Exception('User ID could not be fetched from the server');
+        }
+      } catch (e) {
+        print('Failed to fetch user ID from server: $e');
+        throw Exception('User ID not found');
+      }
+    }
+
+    return userId!;
+  }
+
+  static Future<void> saveUserId(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userId', userId);
+  }
 }
+
 
 class UserData {
   final String firstName;

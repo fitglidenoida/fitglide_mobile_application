@@ -80,9 +80,8 @@ static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> d
 
   updateHealthVital(int i, Map<String, String?> data) {}
 
-   static Future<List<Map<String, dynamic>>> getSleepLogs(String username) async {
-    final String encodedUsername = Uri.encodeQueryComponent(username);
-    final response = await get('sleeplogs?populate=*&filters[username][username][\$eq]=$encodedUsername');
+  static Future<List<Map<String, dynamic>>> getSleepLogs(String userId) async {
+    final response = await get('sleeplogs?populate=*&filters[users_permissions_user][id][\$eq]=$userId');
     
     if (response.containsKey('data') && response['data'] is List) {
       return List<Map<String, dynamic>>.from(response['data']);
@@ -91,12 +90,10 @@ static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> d
     }
   }
 
-  /// Post a new sleep log entry
   static Future<Map<String, dynamic>> addSleepLog(Map<String, dynamic> data) async {
     return post('sleeplogs', {'data': data});
   }
 
-  /// Update an existing sleep log
   static Future<Map<String, dynamic>> updateSleepLog(String logId, Map<String, dynamic> data) async {
     return put('sleeplogs/$logId', {'data': data});
   }
@@ -255,7 +252,35 @@ return ApiService.get('sleeplogs?populate=*&filters[username][username][\$eq]=$u
     return ApiService.post('sleeplogs', data);
   }
 
+  Future<List<dynamic>> fetchUserSleepLogs(int userId) async {
+    final response = await ApiService.get('sleeplogs?populate=*&filters[users_permissions_user][id][\$eq]=$userId');
+    
+    if (response.containsKey('data') && response['data'] is List) {
+      List<dynamic> logs = response['data'];
+      
+      // Filter out entries where user is null if needed
+      List<dynamic> filteredLogs = logs.where((log) {
+        return log['users_permissions_user'] != null && log['users_permissions_user']['id'] == userId;
+      }).toList();
+      
+      return filteredLogs;
+    } else {
+      throw Exception('Failed to load sleep logs: Unexpected response format');
+    }
+  }
 
+    Future<void> updateSleepLogForUser(String logId, Map<String, dynamic> data) async {
+    try {
+      await ApiService.updateSleepLog(logId, data);
+      // Any additional logic here, like updating local state, logging, etc.
+      debugPrint('Sleep log updated successfully for ID: $logId');
+    } catch (e) {
+      debugPrint('Error updating sleep log: $e');
+      // Handle error in a way that's meaningful for your app's flow
+      throw Exception('Failed to update sleep log');
+    }
+  }
 }
+
 
 
