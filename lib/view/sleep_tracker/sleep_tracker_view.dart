@@ -1,12 +1,9 @@
-import 'package:fitglide_mobile_application/common_widget/health_widget.dart';
 import 'package:fitglide_mobile_application/services/api_service.dart';
-import 'package:fitglide_mobile_application/services/health_service.dart';
 import 'package:fitglide_mobile_application/services/sleep_calculator.dart';
 import 'package:fitglide_mobile_application/services/user_service.dart';
 import 'package:fitglide_mobile_application/view/sleep_tracker/sleep_schedule_view.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:health/health.dart';
 import '../../common/colo_extension.dart';
 import '../../common_widget/round_button.dart';
 import '../../common_widget/today_sleep_schedule_row.dart';
@@ -25,6 +22,7 @@ class _SleepTrackerViewState extends State<SleepTrackerView> {
   List<Map<String, dynamic>> sleepData = [];
   Map<String, dynamic> lastNightSleep = {};
   List<Map<String, dynamic>> todaySleepArr = [];
+  List<int> showingTooltipOnSpots = [];
 
   @override
   void initState() {
@@ -42,12 +40,11 @@ class _SleepTrackerViewState extends State<SleepTrackerView> {
       DateTime now = DateTime.now();
       for (var alarm in alarms) {
         try {
-          var alarmTime = DateTime.parse(alarm['time']); 
-          var localAlarmTime = alarmTime.toLocal(); 
-          
+          var alarmTime = DateTime.parse(alarm['time']);
+          var localAlarmTime = alarmTime.toLocal();
+
           if (localAlarmTime.isAfter(now)) {
             String formattedDisplayTime = DateFormat("hh:mm a").format(localAlarmTime);
-            print("formattedDisplayTime: $formattedDisplayTime"); // Add this to log the formatted time
             Duration durationUntilAlarm = localAlarmTime.difference(now);
             String durationText = _formatDuration(durationUntilAlarm);
 
@@ -62,7 +59,6 @@ class _SleepTrackerViewState extends State<SleepTrackerView> {
           log("Error parsing alarm time: ${alarm['time']} - $e");
         }
       }
-      // Sort by time to ensure the next closest alarm is first
       filteredAlarms.sort((a, b) => DateFormat("hh:mm a").parse(a['time']).compareTo(DateFormat("hh:mm a").parse(b['time'])));
       return filteredAlarms;
     } catch (e) {
@@ -99,33 +95,28 @@ class _SleepTrackerViewState extends State<SleepTrackerView> {
     }
   }
 
- void _addBedtimeToSleepArr() {
-  UserService.fetchUserData().then((user) {
-    if (user != null) {
+  void _addBedtimeToSleepArr() {
+    UserService.fetchUserData().then((user) {
       int userAge = user.age;
-      double workoutHours = 1.0; // Example value, should be dynamically fetched
+      double workoutHours = 1.0;
       double sleepHours = SleepCalculator.getRecommendedSleepDuration(userAge, workoutHours);
-        
+
       DateTime now = DateTime.now();
       String cleanTime = cleanTimeString(todaySleepArr.isNotEmpty ? todaySleepArr.first['time'] : '');
-        
+
       DateTime? wakeUpTime;
       try {
-        wakeUpTime = todaySleepArr.isNotEmpty 
-            ? DateFormat('hh:mm a').parse(cleanTime)
-            : null;
+        wakeUpTime = todaySleepArr.isNotEmpty ? DateFormat('hh:mm a').parse(cleanTime) : null;
       } catch (e) {
         print("Error parsing time: $e with string: ${todaySleepArr.isNotEmpty ? todaySleepArr.first['time'] : 'no alarms'}");
         wakeUpTime = null;
       }
-        
-      DateTime? bedtime = wakeUpTime != null 
-          ? _calculateBedtime(wakeUpTime, sleepHours, now)
-          : null;
-        
+
+      DateTime? bedtime = wakeUpTime != null ? _calculateBedtime(wakeUpTime, sleepHours, now) : null;
+
       if (bedtime != null) {
         Duration durationUntilBed = bedtime.difference(now);
-        String durationText = _formatDuration(durationUntilBed); // This line uses the updated function
+        String durationText = _formatDuration(durationUntilBed);
 
         setState(() {
           todaySleepArr.insert(0, {
@@ -136,42 +127,24 @@ class _SleepTrackerViewState extends State<SleepTrackerView> {
           });
         });
       }
-    }
-  });
-}
+    });
+  }
 
+  DateTime _calculateBedtime(DateTime wakeUpTime, double sleepHours, DateTime now) {
+    DateTime baseBedtime = wakeUpTime.subtract(Duration(
+      hours: sleepHours.toInt(),
+      minutes: ((sleepHours % 1) * 60).toInt(),
+    ));
 
-DateTime _calculateBedtime(DateTime wakeUpTime, double sleepHours, DateTime now) {
-  DateTime baseBedtime = wakeUpTime.subtract(Duration(
-    hours: sleepHours.toInt(), 
-    minutes: ((sleepHours % 1) * 60).toInt()
-  ));
-
-  if (baseBedtime.isBefore(now)) {
-
-      // If bedtime is before current time, move it to the next day
-    return DateTime(now.year, now.month, now.day + 1, baseBedtime.hour, baseBedtime.minute);
+    if (baseBedtime.isBefore(now)) {
+      return DateTime(now.year, now.month, now.day + 1, baseBedtime.hour, baseBedtime.minute);
     }
     return baseBedtime;
   }
 
-String _formatBedDuration(Duration duration) {
-  String twoDigits(int n) => n.toString().padLeft(2, "0");
-  String sign = duration.isNegative ? "-" : "";
-  int hours = duration.inHours.abs();
-  int minutes = duration.inMinutes.remainder(60).abs();
-
-  // This part handles both scenarios: for alarms and bedtime
-  if (duration.isNegative) {
-    return "${sign}${hours}h ${twoDigits(minutes)}m";
-  } else {
-    return "${hours}h ${twoDigits(minutes)}m";
-  }
-}
-
   static const platform = MethodChannel('fitglide/alarm');
 
-  void _scheduleNotification(Map<String, dynamic> alarm) async {
+  Future<void> _scheduleNotification(Map<String, dynamic> alarm) async {
     try {
       if (alarm['time'] is! String) {
         log("Error: Alarm time is not a string: ${alarm['time']}");
@@ -181,7 +154,6 @@ String _formatBedDuration(Duration duration) {
       DateTime? alarmTime;
       try {
         alarmTime = DateTime.parse(alarm['time'].toString());
-        print("Parsed alarm time: $alarmTime");
       } catch (e) {
         print("Error parsing alarm time: ${alarm['time']} - Exception: $e");
         return;
@@ -210,23 +182,13 @@ String _formatBedDuration(Duration duration) {
 
   String cleanTimeString(String time) {
     return time
-        .replaceAll(RegExp(r'[^\d:APM\s]'), '') 
-        .replaceAll(RegExp(r'\s+'), ' ') 
-        .replaceAll(RegExp(r'at\s*\d+'), '') 
-        .trim(); 
+        .replaceAll(RegExp(r'[^\d:APM\s]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'at\s*\d+'), '')
+        .trim();
   }
 
-  @pragma('vm:entry-point')
-  static void _showNotification(int id, Map<String, dynamic> params) {
-    log("Notification scheduled for alarm with id: $id and params: $params");
-  }
-
-  void alarmCallback() {
-    log("Alarm Triggered!");
-  }
-
-
-   Future<void> _refreshData() async {
+  Future<void> _refreshData() async {
     await _fetchAlarms();
     await _fetchSleepLogs();
     setState(() {});
@@ -234,35 +196,55 @@ String _formatBedDuration(Duration duration) {
 
   Future<void> _fetchSleepLogs() async {
     try {
-      final userId = await UserService.getUserId();
-      print('User ID: $userId'); // Print user ID to check if it's fetched correctly
+      final user = await UserService.fetchUserData();
+      final username = user.username;
+      print('Username: $username');
 
-      // Assuming 'getSleepLogs' in ApiService expects a user ID
-      List<Map<String, dynamic>> logs = await ApiService.getSleepLogs(userId);
-      
+      final sleepLogs = await ApiService.getSleepLogs(username); // Corrected to ApiService
+      print('Raw Sleep Logs: $sleepLogs');
+
+      // Convert and sort sleep logs by date
+      List<Map<String, dynamic>> parsedLogs = sleepLogs.map((log) {
+        final dateStr = log['date'];
+        final date = DateTime.tryParse(dateStr) ?? DateTime.now();
+        return {
+          'date': date, // Store DateTime for sorting
+          'day': DateFormat('E').format(date),
+          'sleep_duration': (log['sleep_duration'] != null)
+              ? double.tryParse(log['sleep_duration'].toString()) ?? 0.0
+              : 0.0,
+          'deep_sleep_duration': (log['deep_sleep_duration'] != null)
+              ? double.tryParse(log['deep_sleep_duration'].toString()) ?? 0.0
+              : 0.0,
+        };
+      }).toList();
+
+      // Sort by date
+      parsedLogs.sort((a, b) => a['date'].compareTo(b['date']));
+
       setState(() {
-        sleepData = logs.map((log) {
-          return {
-            'day': DateFormat('E').format(DateTime.parse(log['date'])),
-            'sleep_duration': log['sleep_duration'] ?? 0.0,
-            'deep_sleep_duration': log['deep_sleep_duration'] ?? 0.0,
-          };
-        }).toList();
-        // Update lastNightSleep if needed, here's an example:
-        lastNightSleep = logs.isNotEmpty 
-          ? {
-              'total': logs.last['sleep_duration'] ?? 0.0, 
-              'deep': logs.last['deep_sleep_duration'] ?? 0.0,
-            }
-          : {};
+        sleepData = parsedLogs.map((log) => {
+              'day': log['day'],
+              'sleep_duration': log['sleep_duration'],
+              'deep_sleep_duration': log['deep_sleep_duration'],
+            }).toList();
+
+        lastNightSleep = sleepData.isNotEmpty
+            ? {
+                'total': sleepData.last['sleep_duration'],
+                'deep': sleepData.last['deep_sleep_duration'],
+              }
+            : {};
+        print('Processed Sleep Data: $sleepData');
       });
     } catch (e) {
       log("Failed to fetch sleep logs: $e");
+      setState(() {
+        sleepData = [];
+        lastNightSleep = {};
+      });
     }
   }
-
-  List<int> showingTooltipOnSpots = [4];
-
 
   @override
   Widget build(BuildContext context) {
@@ -274,17 +256,16 @@ String _formatBedDuration(Duration duration) {
         centerTitle: true,
         elevation: 0,
         leading: InkWell(
-          onTap: () {
-            Navigator.pop(context);
-          },
+          onTap: () => Navigator.pop(context),
           child: Container(
             margin: const EdgeInsets.all(8),
             height: 40,
             width: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-                color: TColor.lightGray,
-                borderRadius: BorderRadius.circular(10)),
+              color: TColor.lightGray,
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Image.asset(
               "assets/img/black_btn.png",
               width: 15,
@@ -296,13 +277,16 @@ String _formatBedDuration(Duration duration) {
         title: Text(
           "Sleep Tracker",
           style: TextStyle(
-              color: TColor.black, fontSize: 16, fontWeight: FontWeight.w700),
+            color: TColor.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         actions: [
           _buildAppBarIcon("assets/img/more_btn.png", () {}),
         ],
       ),
-       backgroundColor: TColor.white,
+      backgroundColor: TColor.white,
       body: RefreshIndicator(
         onRefresh: _refreshData,
         child: SingleChildScrollView(
@@ -310,12 +294,9 @@ String _formatBedDuration(Duration duration) {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Remove HealthWidget as we are not using health data for sleep tracking anymore
-              if (sleepData.isNotEmpty)
-                _buildLineChart(media),
+              if (sleepData.isNotEmpty) _buildLineChart(media),
               const SizedBox(height: 20),
-              if (lastNightSleep.isNotEmpty)
-                _buildLastNightSleepCard(media),
+              if (lastNightSleep.isNotEmpty) _buildLastNightSleepCard(media),
               const SizedBox(height: 20),
               _buildDailySleepSchedule(),
               const SizedBox(height: 20),
@@ -348,42 +329,146 @@ String _formatBedDuration(Duration duration) {
     );
   }
 
- Widget _buildLineChart(Size media) {
-  return SizedBox(
-    height: media.width * 0.5,
-    child: LineChart(
-      LineChartData(
-        lineTouchData: _buildLineTouchData(),
-        lineBarsData: [
-          _buildLineChartBarData(
-            sleepData.map((e) => FlSpot(sleepData.indexOf(e) + 1, (e['sleep_duration'] as num).toDouble())).toList(), // Convert to double
-            [TColor.primaryColor2, TColor.primaryColor1],
-            'Total Sleep Duration',
+  Widget _buildLineChart(Size media) {
+    return SizedBox(
+      height: media.width * 0.5,
+      child: LineChart(
+        LineChartData(
+          lineTouchData: LineTouchData(
+            enabled: true,
+            handleBuiltInTouches: false,
+            touchCallback: (FlTouchEvent event, LineTouchResponse? response) {
+              if (response == null || response.lineBarSpots == null) {
+                return;
+              }
+              setState(() {
+                showingTooltipOnSpots = response.lineBarSpots!.map((spot) => spot.spotIndex).toList();
+              });
+            },
+            mouseCursorResolver: (FlTouchEvent event, LineTouchResponse? response) {
+              return (response == null || response.lineBarSpots == null)
+                  ? SystemMouseCursors.basic
+                  : SystemMouseCursors.click;
+            },
+            getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
+              return spotIndexes.map((index) {
+                return TouchedSpotIndicatorData(
+                  const FlLine(color: Colors.transparent),
+                  FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                      radius: 3,
+                      color: Colors.white,
+                      strokeWidth: 3,
+                      strokeColor: TColor.secondaryColor1,
+                    ),
+                  ),
+                );
+              }).toList();
+            },
+            touchTooltipData: LineTouchTooltipData(
+              tooltipRoundedRadius: 20,
+              getTooltipItems: (List<LineBarSpot> lineBarsSpot) {
+                return lineBarsSpot.map((lineBarSpot) {
+                  return LineTooltipItem(
+                    "${lineBarSpot.y.toStringAsFixed(1)}h",
+                    const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                }).toList();
+              },
+            ),
           ),
-          _buildLineChartBarData(
-            sleepData.map((e) => FlSpot(sleepData.indexOf(e) + 1, (e['deep_sleep_duration'] as num).toDouble())).toList(), // Convert to double
-            [TColor.secondaryColor2, TColor.secondaryColor1],
-            'Deep Sleep Duration',
+          lineBarsData: [
+            LineChartBarData(
+              isCurved: true,
+              color: TColor.primaryColor1,
+              barWidth: 4,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  colors: [TColor.primaryColor1.withOpacity(0.3), Colors.transparent],
+                ),
+              ),
+              spots: sleepData.asMap().entries.map((entry) {
+                return FlSpot(entry.key + 1, entry.value['sleep_duration']);
+              }).toList(),
+            ),
+            LineChartBarData(
+              isCurved: true,
+              color: TColor.secondaryColor1.withOpacity(0.5),
+              barWidth: 2,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  colors: [TColor.secondaryColor1.withOpacity(0.3), Colors.transparent],
+                ),
+              ),
+              spots: sleepData.asMap().entries.map((entry) {
+                return FlSpot(entry.key + 1, entry.value['deep_sleep_duration']);
+              }).toList(),
+            ),
+          ],
+          minY: 0,
+          maxY: 12,
+          titlesData: FlTitlesData(
+            show: true,
+            leftTitles: const AxisTitles(),
+            topTitles: const AxisTitles(),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 32,
+                interval: 1,
+                getTitlesWidget: (value, meta) {
+                  if (value.toInt() > 0 && value.toInt() <= sleepData.length) {
+                    return Text(
+                      sleepData[value.toInt() - 1]['day'],
+                      style: TextStyle(color: TColor.gray, fontSize: 12),
+                    );
+                  }
+                  return const Text('');
+                },
+              ),
+            ),
+            rightTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                interval: 2,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    '${value.toInt()}h',
+                    style: TextStyle(color: TColor.gray, fontSize: 12),
+                  );
+                },
+              ),
+            ),
           ),
-        ],
-        minY: 0,
-        maxY: 10, // Adjust based on expected sleep duration
-        titlesData: _buildTitlesData(),
-        gridData: FlGridData(
-          show: true,
-          drawHorizontalLine: true,
-          horizontalInterval: 2,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: TColor.gray.withOpacity(0.15),
-            strokeWidth: 2,
+          gridData: FlGridData(
+            show: true,
+            drawHorizontalLine: true,
+            horizontalInterval: 2,
+            drawVerticalLine: false,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: TColor.gray.withOpacity(0.15),
+                strokeWidth: 2,
+              );
+            },
           ),
+          borderData: FlBorderData(show: true, border: Border.all(color: Colors.transparent)),
         ),
-        borderData: FlBorderData(show: false),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildLastNightSleepCard(Size media) {
     return Container(
@@ -438,9 +523,10 @@ String _formatBedDuration(Duration duration) {
           Text(
             "Daily Sleep Schedule",
             style: TextStyle(
-                color: TColor.black,
-                fontSize: 14,
-                fontWeight: FontWeight.w700),
+              color: TColor.black,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           SizedBox(
             width: 75,
@@ -471,7 +557,11 @@ String _formatBedDuration(Duration duration) {
       children: [
         Text(
           "Upcoming Schedule",
-          style: TextStyle(color: TColor.black, fontSize: 16, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: TColor.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 10),
         ListView.builder(
@@ -494,170 +584,5 @@ String _formatBedDuration(Duration duration) {
         ),
       ],
     );
-  }
-
-  FlTitlesData _buildTitlesData() {
-    return FlTitlesData(
-      bottomTitles: AxisTitles(sideTitles: SideTitles(
-        showTitles: true,
-        reservedSize: 32,
-        interval: 1,
-        getTitlesWidget: (value, meta) {
-          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          return Text(days[value.toInt() - 1],
-              style: TextStyle(color: TColor.gray, fontSize: 12));
-        },
-      )),
-      rightTitles: AxisTitles(sideTitles: SideTitles(
-        showTitles: true,
-        reservedSize: 40,
-        interval: 2,
-        getTitlesWidget: (value, meta) {
-          return Text('${value.toInt()}h',
-              style: TextStyle(color: TColor.gray, fontSize: 12));
-        },
-      )),
-      topTitles: const AxisTitles(),
-      leftTitles: const AxisTitles(),
-    );
-  }
-
-  LineTouchData _buildLineTouchData() {
-    return LineTouchData(
-      enabled: true,
-      handleBuiltInTouches: false,
-      touchCallback: (FlTouchEvent event, LineTouchResponse? response) {
-        if (response != null && response.lineBarSpots != null) {
-          setState(() {
-            showingTooltipOnSpots = [
-              response.lineBarSpots!.first.spotIndex
-            ];
-          });
-        }
-      },
-    );
-  }
-
-
-  SideTitles get bottomTitles => SideTitles(
-        showTitles: true,
-        reservedSize: 32,
-        interval: 1,
-        getTitlesWidget: (value, meta) {
-          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          return Text(days[value.toInt() - 1],
-              style: TextStyle(color: TColor.gray, fontSize: 12));
-        },
-      );
-
-  SideTitles get rightTitles => SideTitles(
-        showTitles: true,
-        reservedSize: 40,
-        interval: 2,
-        getTitlesWidget: (value, meta) {
-          return Text('${value.toInt()}h',
-              style: TextStyle(color: TColor.gray, fontSize: 12));
-        },
-      );
-
-  // List<LineChartBarData> get lineBarsData {
-  //   return [
-  //     _buildLineChartBarData(
-  //         sleepData.map((e) => FlSpot(sleepData.indexOf(e) + 1, e['total'])).toList(),
-  //         [TColor.primaryColor2, TColor.primaryColor1]),
-  //   ];
-  // }
-
-  bool get isLoading => false;
-
- LineChartBarData _buildLineChartBarData(List<FlSpot> spots, List<Color> gradientColors, String name) {
-    return LineChartBarData(
-      isCurved: true,
-      gradient: LinearGradient(colors: gradientColors),
-      barWidth: 2,
-      belowBarData: BarAreaData(
-        show: true,
-        gradient: LinearGradient(
-          colors: [
-            gradientColors.first.withOpacity(0.3),
-            Colors.transparent
-          ],
-        ),
-      ),
-      spots: spots,
-      showingIndicators: [0],
-      dotData: FlDotData(
-        show: false,
-      ),
-    );
-  }
-
-
-  void _processSleepData(List<HealthDataPoint> healthData) {
-    Map<String, Map<String, double>> weeklySleep = {};
-    Map<String, double> lastNight = {};
-
-    for (var dataPoint in healthData) {
-      String day = dataPoint.dateFrom.weekday.toString();
-      double value = _toDouble(dataPoint.value);
-
-      switch (dataPoint.type) {
-        case HealthDataType.SLEEP_ASLEEP:
-        case HealthDataType.SLEEP_IN_BED:
-          weeklySleep[day] = (weeklySleep[day] ?? {})..update('total', (existingValue) => existingValue + value, ifAbsent: () => value);
-          if (dataPoint.dateFrom.day == DateTime.now().day - 1) {
-            lastNight['total'] = (lastNight['total'] ?? 0.0) + value;
-          }
-          break;
-        case HealthDataType.SLEEP_DEEP:
-          weeklySleep[day] = (weeklySleep[day] ?? {})..update('deep', (existingValue) => existingValue + value, ifAbsent: () => value);
-          if (dataPoint.dateFrom.day == DateTime.now().day - 1) {
-            lastNight['deep'] = (lastNight['deep'] ?? 0.0) + value;
-          }
-          break;
-        default:
-          break;
-      }
-    }
-
-    print("Weekly Sleep: $weeklySleep");
-    print("Last Night Sleep: $lastNight");
-
-    var newSleepData = weeklySleep.entries.map((entry) {
-      int weekdayIndex = int.tryParse(entry.key) ?? 0;
-      String dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][weekdayIndex - 1];
-
-      return {
-        'day': dayName,
-        'total': entry.value['total'] ?? 0.0,
-        'deep': entry.value['deep'] ?? 0.0,
-      };
-    }).toList();
-
-    setState(() {
-      sleepData = newSleepData;
-      lastNightSleep = lastNight;
-    });
-  }
-
-  double _toDouble(dynamic value) {
-    if (value == null) {
-      print("Warning: Received null value.");
-      return 0.0;
-    }
-
-    if (value is num) {
-      return value.toDouble();
-    } else if (value is String) {
-      double? parsedValue = double.tryParse(value);
-      if (parsedValue == null) {
-        print("Warning: Unable to parse value '$value' as double.");
-        return 0.0;
-      }
-      return parsedValue;
-    } else {
-      print("Warning: Unexpected type for value '$value'.");
-      return 0.0;
-    }
   }
 }

@@ -6,7 +6,7 @@ import '../../common_widget/round_button.dart';
 import 'add_schedule_view.dart';
 
 class WorkoutScheduleView extends StatefulWidget {
-  const WorkoutScheduleView({Key? key}) : super(key: key);
+  const WorkoutScheduleView({super.key});
 
   @override
   State<WorkoutScheduleView> createState() => _WorkoutScheduleViewState();

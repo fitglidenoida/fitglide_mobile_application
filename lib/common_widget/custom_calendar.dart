@@ -7,7 +7,7 @@ class CustomCalendar extends StatefulWidget {
   final Function(DateTime) onDateSelected;
   final DateTime initialDate;
 
-  const CustomCalendar({Key? key, required this.onDateSelected, required this.initialDate}) : super(key: key);
+  const CustomCalendar({super.key, required this.onDateSelected, required this.initialDate});
 
   @override
   _CustomCalendarState createState() => _CustomCalendarState();
@@ -16,10 +16,10 @@ class CustomCalendar extends StatefulWidget {
 class _CustomCalendarState extends State<CustomCalendar> {
   late DateTime _selectedDate;
   late DateTime _focusedDay;
-  List<DateTime> _dates = [];
+  final List<DateTime> _dates = [];
   int? _daySelectedIndex;
   final ItemScrollController _scrollController = ItemScrollController();
-  double _scrollAlignment = 0.15;
+  final double _scrollAlignment = 0.15;
 
   @override
   void initState() {

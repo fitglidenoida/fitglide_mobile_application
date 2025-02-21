@@ -6,7 +6,7 @@ import '../common/common.dart';
 
 class TodaySleepScheduleRow extends StatefulWidget {
   final Map<String, dynamic> sObj;
-  const TodaySleepScheduleRow({Key? key, required this.sObj}) : super(key: key);
+  const TodaySleepScheduleRow({super.key, required this.sObj});
 
   @override
   State<TodaySleepScheduleRow> createState() => _TodaySleepScheduleRowState();

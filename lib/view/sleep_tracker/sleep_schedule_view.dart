@@ -88,38 +88,36 @@ class _SleepScheduleViewState extends ConsumerState<SleepScheduleView> {
 
   void _addBedtimeToSleepSchedule() {
     UserService.fetchUserData().then((user) {
-      if (user != null) {
-        int userAge = user.age;
-        double workoutHours = 1.0; // Example value, should be dynamically fetched
-        double idealSleepDuration = SleepCalculator.getRecommendedSleepDuration(userAge, workoutHours);
-        
-        DateTime now = DateTime.now();
-        
-        if (_sleepSchedule.isNotEmpty) {
-          DateTime? wakeUpTime;
-          try {
-            wakeUpTime = DateFormat('hh:mm a').parse(_sleepSchedule.first['time']);
-          } catch (e) {
-            print("Error parsing time: $e with string: ${_sleepSchedule.first['time']}");
-            return;
-          }
-
-          DateTime bedtime = _calculateBedtime(wakeUpTime, idealSleepDuration, now);
-          Duration durationUntilBed = bedtime.difference(now);
-          String durationText = _formatDuration(durationUntilBed);
-
-          setState(() {
-            _idealSleepHours = idealSleepDuration; // Update ideal sleep hours
-            _sleepSchedule.insert(0, {
-              "name": "Bedtime",
-              "image": "assets/img/bed.png",
-              "time": DateFormat("hh:mm a").format(bedtime),
-              "duration": durationText
-            });
-          });
+      int userAge = user.age;
+      double workoutHours = 1.0; // Example value, should be dynamically fetched
+      double idealSleepDuration = SleepCalculator.getRecommendedSleepDuration(userAge, workoutHours);
+      
+      DateTime now = DateTime.now();
+      
+      if (_sleepSchedule.isNotEmpty) {
+        DateTime? wakeUpTime;
+        try {
+          wakeUpTime = DateFormat('hh:mm a').parse(_sleepSchedule.first['time']);
+        } catch (e) {
+          print("Error parsing time: $e with string: ${_sleepSchedule.first['time']}");
+          return;
         }
+
+        DateTime bedtime = _calculateBedtime(wakeUpTime, idealSleepDuration, now);
+        Duration durationUntilBed = bedtime.difference(now);
+        String durationText = _formatDuration(durationUntilBed);
+
+        setState(() {
+          _idealSleepHours = idealSleepDuration; // Update ideal sleep hours
+          _sleepSchedule.insert(0, {
+            "name": "Bedtime",
+            "image": "assets/img/bed.png",
+            "time": DateFormat("hh:mm a").format(bedtime),
+            "duration": durationText
+          });
+        });
       }
-    });
+        });
   }
 
   DateTime _calculateBedtime(DateTime wakeUpTime, double sleepHours, DateTime now) {

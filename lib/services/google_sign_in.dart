@@ -28,7 +28,7 @@ class GoogleSignInHelper {
 
       debugPrint("User signed in: ${googleUser.email}");
 
-      final GoogleSignInAuthentication? googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
       // Fetch ID Token manually if missing
       final String? idToken = googleAuth?.idToken;

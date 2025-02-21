@@ -80,8 +80,8 @@ static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> d
 
   updateHealthVital(int i, Map<String, String?> data) {}
 
-  static Future<List<Map<String, dynamic>>> getSleepLogs(String userId) async {
-    final response = await get('sleeplogs?populate=*&filters[users_permissions_user][id][\$eq]=$userId');
+  static Future<List<Map<String, dynamic>>> getSleepLogs(String username) async {
+    final response = await get('sleeplogs?populate=*&filters[username][username][\$eq]=$username');
     
     if (response.containsKey('data') && response['data'] is List) {
       return List<Map<String, dynamic>>.from(response['data']);
@@ -96,6 +96,34 @@ static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> d
 
   static Future<Map<String, dynamic>> updateSleepLog(String logId, Map<String, dynamic> data) async {
     return put('sleeplogs/$logId', {'data': data});
+  }
+
+  static Future<Map<String, dynamic>> getDietComponents() async {
+    return get('diet-components?populate=*');
+  }
+
+  // Fetch meals with populated data
+  static Future<Map<String, dynamic>> getMeals() async {
+    return get('meals?populate=*');
+  }
+
+  // Fetch diet-plans with populated data
+  static Future<Map<String, dynamic>> getDietPlans() async {
+    return get('diet-plans?populate=*');
+  }
+
+  static Future<Map<String, dynamic>> postDietComponent(Map<String, dynamic> data) async {
+    return post('diet-components', {'data': data});
+  }
+
+  // Add a new meal
+  static Future<Map<String, dynamic>> postMeal(Map<String, dynamic> data) async {
+    return post('meals', {'data': data});
+  }
+
+  // Add a new diet plan
+  static Future<Map<String, dynamic>> postDietPlan(Map<String, dynamic> data) async {
+    return post('diet-plans', {'data': data});
   }
 
 }
@@ -245,29 +273,30 @@ Future<List<dynamic>> fetchHealthVitals(String username) async {
   }
    
 Future<Map<String, dynamic>> getSleepLogs(String username) async {
-return ApiService.get('sleeplogs?populate=*&filters[username][username][\$eq]=$username');
+  return ApiService.get('sleeplogs?populate=*&filters[username][username][\$eq]=$username');
 }
 
   Future<Map<String, dynamic>> postSleepLogs(Map<String, dynamic> data) async {
     return ApiService.post('sleeplogs', data);
   }
 
-  Future<List<dynamic>> fetchUserSleepLogs(int userId) async {
-    final response = await ApiService.get('sleeplogs?populate=*&filters[users_permissions_user][id][\$eq]=$userId');
-    
-    if (response.containsKey('data') && response['data'] is List) {
-      List<dynamic> logs = response['data'];
-      
-      // Filter out entries where user is null if needed
-      List<dynamic> filteredLogs = logs.where((log) {
-        return log['users_permissions_user'] != null && log['users_permissions_user']['id'] == userId;
-      }).toList();
-      
-      return filteredLogs;
-    } else {
-      throw Exception('Failed to load sleep logs: Unexpected response format');
-    }
+Future<List<dynamic>> fetchUserSleepLogs(String username) async {
+  final response = await ApiService.get('sleeplogs?populate=*&filters[username][username][\$eq]=$username');
+  
+  if (response.containsKey('data') && response['data'] is List) {
+    List<dynamic> logs = response['data'];
+
+    // Ensure only entries linked to the correct username are returned
+    List<dynamic> filteredLogs = logs.where((log) {
+      return log['username'] != null && log['username']['username'] == username;
+    }).toList();
+
+    return filteredLogs;
+  } else {
+    throw Exception('Failed to load sleep logs: Unexpected response format');
   }
+}
+
 
     Future<void> updateSleepLogForUser(String logId, Map<String, dynamic> data) async {
     try {
