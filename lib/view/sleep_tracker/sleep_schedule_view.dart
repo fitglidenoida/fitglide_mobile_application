@@ -1,6 +1,5 @@
 import 'package:fitglide_mobile_application/common_widget/custom_calendar.dart';
 import 'package:fitglide_mobile_application/services/sleep_calculator.dart';
-import 'package:fitglide_mobile_application/services/sleep_provider.dart';
 import 'package:fitglide_mobile_application/services/user_service.dart';
 import 'package:fitglide_mobile_application/view/sleep_tracker/sleep_add_alarm_view.dart';
 import 'package:flutter/material.dart';

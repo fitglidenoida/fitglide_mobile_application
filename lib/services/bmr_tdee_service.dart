@@ -106,4 +106,13 @@ class BmrTdeeService extends StatelessWidget {
       'gain_500g': tdee + 550,       // 500g/week gain ≈ 550 kcal/day surplus
     };
   }
+
+  Future<Map<String, double>> fetchTdeeOptions() async {
+    final user = await UserService.fetchUserData();
+    final bmr = calculateBMR(user);
+    // Assuming activity level defaults to 'sedentary' if not provided
+    // Replace with actual user activity level if available in UserData
+    const activityLevel = 'sedentary'; // Adjust based on your data model
+    return calculateTDEEOptions(bmr, activityLevel);
+  }
 }
