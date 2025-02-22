@@ -98,34 +98,47 @@ static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> d
     return put('sleeplogs/$logId', {'data': data});
   }
 
-  static Future<Map<String, dynamic>> getDietComponents() async {
+static Future<Map<String, dynamic>> fetchDietComponents(String dietPreference) async {
+    return get('diet-components?populate=*&filters[food_type][\$eq]=$dietPreference');
+  }
+
+static Future<Map<String, dynamic>> getDietComponents() async {
     return get('diet-components?populate=*');
   }
 
-  // Fetch meals with populated data
-  static Future<Map<String, dynamic>> getMeals() async {
-    return get('meals?populate=*');
-  }
-
-  // Fetch diet-plans with populated data
-  static Future<Map<String, dynamic>> getDietPlans() async {
-    return get('diet-plans?populate=*');
-  }
-
-  static Future<Map<String, dynamic>> postDietComponent(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> addDietComponent(Map<String, dynamic> data) async {
     return post('diet-components', {'data': data});
   }
 
-  // Add a new meal
-  static Future<Map<String, dynamic>> postMeal(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> updateDietComponent(String id, Map<String, dynamic> data) async {
+    return put('diet-components/$id', {'data': data});
+  }
+
+  // Meals Methods
+  static Future<Map<String, dynamic>> fetchMeals() async {
+    return get('meals?populate=*');
+  }
+
+  static Future<Map<String, dynamic>> addMeal(Map<String, dynamic> data) async {
     return post('meals', {'data': data});
   }
 
-  // Add a new diet plan
-  static Future<Map<String, dynamic>> postDietPlan(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> updateMeal(String id, Map<String, dynamic> data) async {
+    return put('meals/$id', {'data': data});
+  }
+
+  // Diet Plans Methods
+  static Future<Map<String, dynamic>> fetchDietPlans(String username) async {
+    return get('diet-plans?populate=*&filters[users_permissions_user][username][\$eq]=$username');
+  }
+
+  static Future<Map<String, dynamic>> addDietPlan(Map<String, dynamic> data) async {
     return post('diet-plans', {'data': data});
   }
 
+  static Future<Map<String, dynamic>> updateDietPlan(String id, Map<String, dynamic> data) async {
+    return put('diet-plans/$id', {'data': data});
+  }
 }
 
 
