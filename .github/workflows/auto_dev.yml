@@ -1,0 +1,31 @@
+name: Auto-Generate & Debug Code
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 * * * *'  # Runs every hour
+
+jobs:
+  automate_dev:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Set Up Python & Dependencies
+        run: |
+          pip install langchain llama-index ollama
+
+      - name: Run AI Developer
+        run: python automate_fitglide.py
+
+      - name: Commit & Push Changes
+        run: |
+          git config --global user.name "AI Dev Bot"
+          git config --global user.email "ai-bot@fitglide.com"
+          git add .
+          git commit -m "Automated Flutter updates"
+          git push
